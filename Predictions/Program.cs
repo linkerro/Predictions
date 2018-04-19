@@ -25,7 +25,7 @@ namespace Predictions
             //MergeFiles();
             //MergeFiles2();
 
-            var trainTestData = CreateDataSets();
+            var trainTestData = CreateDataSets3();
             CreateAndTrainModel(trainTestData);
         }
 
@@ -47,7 +47,7 @@ namespace Predictions
             model.Compile(OptOptimizers.Adam, OptLosses.MeanSquaredError, OptMetrics.MSE);
             model.Train(trainFrame, 10, 64, testFrame);
 
-            File.WriteAllText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\" + DateTime.Now.ToString("yyyy_MM_dd_hh_mm") + ".txt", buffer);
+            File.WriteAllText(@"..\..\Logs\" + DateTime.Now.ToString("yyyy_MM_dd_hh_mm") + ".txt", buffer);
 
             Console.ReadLine();
         }
@@ -79,9 +79,8 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(@"..\..\Data\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
-            var mnemonicCount = records.GroupBy(r => r.Mnemonic).Select(g => new { g.Key, Count = g.Count() }).OrderByDescending(r => r.Count).ToList();
             var firstInfo = records
                 .Where(r => r.Mnemonic == "BMW")
                 .KeepColumns(new string[] { "MaxPrice", "Date", "Time" })
@@ -105,7 +104,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets2()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(@"..\..\Data\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .Where(r => r.Mnemonic == "BMW")
@@ -142,7 +141,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets3()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(@"..\..\Data\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .KeepColumns(new string[] { "Mnemonic", "MaxPrice", "Date", "Time" })
@@ -174,7 +173,8 @@ namespace Predictions
                 .Categorize("Mnemonic", categories)
                 .NormalizeColumn("Mnemonic")
                 .ToList();
-            var windows = GetWindows(firstInfo);
+            var windows = firstInfo.GroupBy(r => r.Mnemonic).SelectMany(g=>GetWindows(g.ToList())).ToList();
+            //var windows = GetWindows(firstInfo);
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
@@ -183,7 +183,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets4()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(@"..\..\Data\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .KeepColumns(new string[] { "Mnemonic", "MaxPrice", "Date", "Time" })
@@ -225,7 +225,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets5()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(@"..\..\Data\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .KeepColumns(new string[] { "Mnemonic", "SecurityType", "MaxPrice", "MinPrice", "StartPrice", "EndPrice", "Date", "Time" })
@@ -277,6 +277,11 @@ namespace Predictions
 
         public static List<WindowObject> GetWindows(List<dynamic> records, int windowSize = 5)
         {
+            if (records.Count < windowSize+2)
+            {
+                return new List<WindowObject>();
+            }
+
             var windows = Enumerable.Range(0, records.Count - windowSize - 2)
                 .Select(index =>
                 {
