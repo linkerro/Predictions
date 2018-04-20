@@ -1,4 +1,5 @@
-﻿using CsvHelper;
+﻿using CNTK;
+using CsvHelper;
 using CsvHelper.Configuration;
 using SiaNet;
 using SiaNet.Common;
@@ -24,10 +25,17 @@ namespace Predictions
 
         static void Main(string[] args)
         {
+            var devices = DeviceDescriptor.AllDevices().Where(x => (x.Type == DeviceKind.GPU)).ToList();
+            if (devices.Count() == 0)
+                throw new Exception("No GPU Device found. Please run the CPU examples instead!");
+
+            //Setting global device
+            GlobalParameters.Device = devices[0];
+
             //MergeFiles();
             //MergeFiles2();
 
-            var trainTestData = CreateDataSets4();
+            var trainTestData = CreateDataSets();
             CreateAndTrainModel(trainTestData);
         }
 
@@ -48,7 +56,7 @@ namespace Predictions
             model.OnBatchEnd += Model_OnBatchEnd;
 
             model.Compile(OptOptimizers.Adam, OptLosses.MeanSquaredError, OptMetrics.MSE);
-            model.Train(trainFrame, 10, 64, testFrame);
+            model.Train(trainFrame, 10, 256, testFrame);
 
             File.WriteAllText(LogTo + DateTime.Now.ToString("yyyy_MM_dd_hh_mm") + ".txt", buffer);
 
@@ -160,8 +168,7 @@ namespace Predictions
                 r.Date = DateTime.Parse(r.Date as string).Day;
                 r.Time = TimeSpan.Parse(r.Time as string).Hours;
             });
-            firstInfo = firstInfo.GroupBy(r => new { r.Mnemonic, r.Date, r.Time })
-                .Select(g =>
+            firstInfo = firstInfo.GroupBy(r => new { r.Mnemonic, r.Date, r.Time }).Select(g =>
                 {
                     dynamic row = new ExpandoObject();
                     row.Date = g.Key.Date;
@@ -178,7 +185,7 @@ namespace Predictions
                 .Categorize("Mnemonic", categories)
                 .NormalizeColumn("Mnemonic")
                 .ToList();
-            var windows = GetWindows(firstInfo);
+            var windows = GetWindows(firstInfo.GroupBy(r => r.Mnemonic));
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
