@@ -18,6 +18,8 @@ namespace Predictions
     class Program
     {
         const int WindowSize = 5;
+        private const string OmegaCSV = @".\Resources\omega.csv";
+        private const string LogTo = @".\";
         static string buffer = "Start at: " + DateTime.Now.ToString() + Environment.NewLine;
 
         static void Main(string[] args)
@@ -25,7 +27,7 @@ namespace Predictions
             //MergeFiles();
             //MergeFiles2();
 
-            var trainTestData = CreateDataSets();
+            var trainTestData = CreateDataSets4();
             CreateAndTrainModel(trainTestData);
         }
 
@@ -43,13 +45,21 @@ namespace Predictions
 
             model.OnEpochEnd += Model_OnEpochEnd;
             model.OnTrainingEnd += Model_OnTrainingEnd;
+            model.OnBatchEnd += Model_OnBatchEnd;
 
             model.Compile(OptOptimizers.Adam, OptLosses.MeanSquaredError, OptMetrics.MSE);
             model.Train(trainFrame, 10, 64, testFrame);
 
-            File.WriteAllText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\" + DateTime.Now.ToString("yyyy_MM_dd_hh_mm") + ".txt", buffer);
+            File.WriteAllText(LogTo + DateTime.Now.ToString("yyyy_MM_dd_hh_mm") + ".txt", buffer);
 
             Console.ReadLine();
+        }
+
+        private static void Model_OnBatchEnd(int epoch, int batchNumber, uint samplesSeen, double loss, Dictionary<string, double> metrics)
+        {
+            string epochInfo = $"Epoch: {epoch}, Batch: {batchNumber}, Loss: {loss}, MSE: {metrics.First().Value}";
+            buffer += epochInfo + Environment.NewLine;
+            Console.WriteLine(epochInfo);
         }
 
         private static void Model_OnTrainingEnd(Dictionary<string, List<double>> trainingResult)
@@ -71,7 +81,6 @@ namespace Predictions
 
         private static void Model_OnEpochEnd(int epoch, uint samplesSeen, double loss, Dictionary<string, double> metrics)
         {
-
             string epochInfo = $"Epoch: {epoch}, Loss: {loss}, MSE: {metrics.First().Value}";
             buffer += epochInfo + Environment.NewLine;
             Console.WriteLine(epochInfo);
@@ -79,7 +88,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(OmegaCSV), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var mnemonicCount = records.GroupBy(r => r.Mnemonic).Select(g => new { g.Key, Count = g.Count() }).OrderByDescending(r => r.Count).ToList();
             var firstInfo = records
@@ -90,7 +99,7 @@ namespace Predictions
             firstInfo.ForEach(r =>
             {
                 r.Date = DateTime.Parse(r.Date as string).Day;
-                r.Time = TimeSpan.Parse(r.Time as string).Minutes;
+                r.Time = (int)TimeSpan.Parse(r.Time as string).TotalMinutes;
             });
             firstInfo = firstInfo.NormalizeColumn("MaxPrice")
                 .NormalizeColumn("Date")
@@ -105,7 +114,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets2()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(OmegaCSV), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .Where(r => r.Mnemonic == "BMW")
@@ -115,16 +124,14 @@ namespace Predictions
             firstInfo.ForEach(r =>
             {
                 r.Date = DateTime.Parse(r.Date as string).Day;
-                r.Time = TimeSpan.Parse(r.Time as string).TotalMinutes;
+                r.Time = TimeSpan.Parse(r.Time as string).Hours;
             });
-            firstInfo = firstInfo.GroupBy(r => r.Date.ToString()
-                 + " "
-                 + ((int)(r.Time / 60)).ToString())
+            firstInfo = firstInfo.GroupBy(r => new { r.Date, r.Time })
                 .Select(g =>
                 {
                     dynamic row = new ExpandoObject();
-                    row.Date = g.First().Date;
-                    row.Time = g.First().Time;
+                    row.Date = g.Key.Date;
+                    row.Time = g.Key.Time;
                     row.MaxPrice = g.Max(r => r.MaxPrice);
                     return row;
                 })
@@ -142,7 +149,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets3()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(OmegaCSV), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .KeepColumns(new string[] { "Mnemonic", "MaxPrice", "Date", "Time" })
@@ -151,18 +158,15 @@ namespace Predictions
             firstInfo.ForEach(r =>
             {
                 r.Date = DateTime.Parse(r.Date as string).Day;
-                r.Time = TimeSpan.Parse(r.Time as string).TotalMinutes;
+                r.Time = TimeSpan.Parse(r.Time as string).Hours;
             });
-            firstInfo = firstInfo.GroupBy(r => r.Mnemonic
-                    + r.Date.ToString()
-                    + " "
-                    + ((int)(r.Time / 60)).ToString())
+            firstInfo = firstInfo.GroupBy(r => new { r.Mnemonic, r.Date, r.Time })
                 .Select(g =>
                 {
                     dynamic row = new ExpandoObject();
-                    row.Date = g.First().Date;
-                    row.Time = g.First().Time;
-                    row.Mnemonic = g.First().Mnemonic;
+                    row.Date = g.Key.Date;
+                    row.Time = g.Key.Time;
+                    row.Mnemonic = g.Key.Mnemonic;
                     row.MaxPrice = g.Max(r => r.MaxPrice);
                     return row;
                 })
@@ -183,7 +187,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets4()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(OmegaCSV), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .KeepColumns(new string[] { "Mnemonic", "MaxPrice", "Date", "Time" })
@@ -192,18 +196,14 @@ namespace Predictions
             firstInfo.ForEach(r =>
             {
                 r.Date = DateTime.Parse(r.Date as string).Day;
-                r.Time = TimeSpan.Parse(r.Time as string).TotalMinutes;
+                r.Time = TimeSpan.Parse(r.Time as string).Hours;
             });
-            firstInfo = firstInfo.GroupBy(r => r.Mnemonic
-                    + r.Date.ToString()
-                    + " "
-                    + ((int)(r.Time / 60)).ToString())
-                .Select(g =>
+            firstInfo = firstInfo.GroupBy(r => new { r.Mnemonic, r.Date, r.Time }).Select(g =>
                 {
                     dynamic row = new ExpandoObject();
-                    row.Date = g.First().Date;
-                    row.Time = g.First().Time;
-                    row.Mnemonic = g.First().Mnemonic;
+                    row.Date = g.Key.Date;
+                    row.Time = g.Key.Time;
+                    row.Mnemonic = g.Key.Mnemonic;
                     row.MaxPrice = g.Max(r => r.MaxPrice);
                     return row;
                 })
@@ -215,7 +215,7 @@ namespace Predictions
                 .Categorize("Mnemonic", categories)
                 .NormalizeColumn("Mnemonic")
                 .ToList();
-            var windows = GetWindows(firstInfo);
+            var windows = GetWindows(firstInfo.GroupBy(r => r.Mnemonic));
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
@@ -225,7 +225,7 @@ namespace Predictions
 
         private static TrainTestData CreateDataSets5()
         {
-            var reader = new CsvReader(File.OpenText(@"C:\Users\Default.DESKTOP-MDUB405\Downloads\omega.csv"), new Configuration { Delimiter = ",", HasHeaderRecord = true });
+            var reader = new CsvReader(File.OpenText(OmegaCSV), new Configuration { Delimiter = ",", HasHeaderRecord = true });
             var records = reader.GetRecords<dynamic>().ToList();
             var firstInfo = records
                 .KeepColumns(new string[] { "Mnemonic", "SecurityType", "MaxPrice", "MinPrice", "StartPrice", "EndPrice", "Date", "Time" })
@@ -234,20 +234,17 @@ namespace Predictions
             firstInfo.ForEach(r =>
             {
                 r.Date = DateTime.Parse(r.Date as string).Day;
-                r.Time = TimeSpan.Parse(r.Time as string).TotalMinutes;
+                r.Time = TimeSpan.Parse(r.Time as string).Hours;
             });
-            firstInfo = firstInfo.GroupBy(r => r.Mnemonic
-                    + r.Date.ToString()
-                    + " "
-                    + ((int)(r.Time / 60)).ToString())
+            firstInfo = firstInfo.GroupBy(r => new { r.Mnemonic, r.Date, r.Time, r.SecurityType })
                 .Select(g =>
                 {
                     dynamic row = new ExpandoObject();
-                    row.Date = g.First().Date;
-                    row.Time = g.First().Time;
-                    row.Mnemonic = g.First().Mnemonic;
+                    row.Date = g.Key.Date;
+                    row.Time = g.Key.Time;
+                    row.Mnemonic = g.Key.Mnemonic;
                     row.MaxPrice = g.Max(r => r.MaxPrice);
-                    row.SecurityType = g.First().SecurityType;
+                    row.SecurityType = g.Key.SecurityType;
                     row.MinPrice = g.Min(r => r.MinPrice);
                     row.StartPrice = g.First().StartPrice;
                     row.EndPrice = g.Last().EndPrice;
@@ -267,7 +264,7 @@ namespace Predictions
                 .Categorize("SecurityType", securityTypeCategories)
                 .NormalizeColumn("SecurityType")
                 .ToList();
-            var windows = GetWindows(firstInfo);
+            var windows = GetWindows(firstInfo.GroupBy(r => r.Mnemonic));
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
@@ -277,15 +274,34 @@ namespace Predictions
 
         public static List<WindowObject> GetWindows(List<dynamic> records, int windowSize = 5)
         {
-            var windows = Enumerable.Range(0, records.Count - windowSize - 2)
+            var count = records.Count - windowSize - 2;
+            if (count <= 0)
+            {
+                //Console.WriteLine($"Not enough records ({records.Count}) to make a proper list of windows ({windowSize})");
+                return new List<WindowObject>();
+            }
+            var windows = Enumerable.Range(0, count)
                 .Select(index =>
                 {
-                    var window = records
-                                .Where((r, rIndex) => rIndex >= index && rIndex < index + windowSize)
-                                .ToList();
+                    var window = new List<dynamic>();
+                    for (int i = index; i < index + windowSize; i++)
+                    {
+                        window.Add(records[i]);
+                    };
                     return new WindowObject { Window = window, Prediction = records[index + windowSize + 1].MaxPrice };
                 })
                 .ToList();
+            return windows;
+        }
+
+        public static List<WindowObject> GetWindows<TKey>(IEnumerable<IGrouping<TKey, dynamic>> records, int windowSize = 5)
+        {
+            var windows = new List<WindowObject>();
+            foreach (var item in records)
+            {
+                windows.AddRange(GetWindows(item.ToList(), windowSize));
+            }
+
             return windows;
         }
     }
