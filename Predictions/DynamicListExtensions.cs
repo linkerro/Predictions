@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
+using System;
 
 namespace Predictions
 {
@@ -28,6 +29,23 @@ namespace Predictions
         public static IEnumerable<dynamic> Categorize(this IEnumerable<dynamic> records, string columnName, List<dynamic> categories)
         {
             records.ToList().ForEach(r => { (r as IDictionary<string, object>)[columnName] = categories.IndexOf((r as IDictionary<string, object>)[columnName]); });
+            return records;
+        }
+
+        public static IEnumerable<dynamic> OneHotEncode(this IEnumerable<dynamic> records, string columnName, List<dynamic> categories)
+        {
+            var categoryDictionary = categories.ToDictionary(c => c, c => categories.IndexOf(c));
+            IDictionary<string, object> row;
+            int i = 0;
+            foreach (var r in records)
+            {
+                row = r as IDictionary<string, object>;
+                for (i = 0; i < categories.Count; i++)
+                {
+                    row[columnName + i] = System.Convert.ToInt32(i == categoryDictionary[row[columnName]]);
+                }
+                row.Remove(columnName);
+            }
             return records;
         }
 

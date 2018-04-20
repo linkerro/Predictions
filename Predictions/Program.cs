@@ -219,7 +219,6 @@ namespace Predictions
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
-            trainTestData.TrainData = trainTestData.TrainData.Keep(0.2f);
             return trainTestData;
         }
 
@@ -268,14 +267,13 @@ namespace Predictions
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
-            //trainTestData.TrainData = trainTestData.TrainData.Keep(0.2f);
             return trainTestData;
         }
 
         public static List<WindowObject> GetWindows(List<dynamic> records, int windowSize = 5)
         {
             var count = records.Count - windowSize - 2;
-            if (count <= 0)
+            if (count < 0)
             {
                 //Console.WriteLine($"Not enough records ({records.Count}) to make a proper list of windows ({windowSize})");
                 return new List<WindowObject>();
