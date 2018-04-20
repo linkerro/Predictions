@@ -25,7 +25,7 @@ namespace Predictions
             //MergeFiles();
             //MergeFiles2();
 
-            var trainTestData = CreateDataSets3();
+            var trainTestData = CreateDataSets4();
             CreateAndTrainModel(trainTestData);
         }
 
@@ -173,8 +173,7 @@ namespace Predictions
                 .Categorize("Mnemonic", categories)
                 .NormalizeColumn("Mnemonic")
                 .ToList();
-            var windows = firstInfo.GroupBy(r => r.Mnemonic).SelectMany(g=>GetWindows(g.ToList())).ToList();
-            //var windows = GetWindows(firstInfo);
+            var windows = firstInfo.GroupBy(r => r.Mnemonic).SelectMany(g => GetWindows(g.ToList())).ToList();
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
@@ -214,12 +213,12 @@ namespace Predictions
                 .NormalizeColumn("Time")
                 .Categorize("Mnemonic", categories)
                 .NormalizeColumn("Mnemonic")
+                //.OneHotEncode("Mnemonic", categories)
                 .ToList();
             var windows = GetWindows(firstInfo);
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
-            trainTestData.TrainData = trainTestData.TrainData.Keep(0.2f);
             return trainTestData;
         }
 
@@ -277,7 +276,7 @@ namespace Predictions
 
         public static List<WindowObject> GetWindows(List<dynamic> records, int windowSize = 5)
         {
-            if (records.Count < windowSize+2)
+            if (records.Count < windowSize + 2)
             {
                 return new List<WindowObject>();
             }
@@ -285,9 +284,14 @@ namespace Predictions
             var windows = Enumerable.Range(0, records.Count - windowSize - 2)
                 .Select(index =>
                 {
-                    var window = records
-                                .Where((r, rIndex) => rIndex >= index && rIndex < index + windowSize)
-                                .ToList();
+                    //var window = records
+                    //            .Where((r, rIndex) => rIndex >= index && rIndex < index + windowSize)
+                    //            .ToList();
+                    var window = new List<dynamic>();
+                    for(var i = index; i < index + windowSize; i++)
+                    {
+                        window.Add(records[i]);
+                    }
                     return new WindowObject { Window = window, Prediction = records[index + windowSize + 1].MaxPrice };
                 })
                 .ToList();
