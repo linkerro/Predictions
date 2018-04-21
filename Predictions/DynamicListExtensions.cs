@@ -2,6 +2,8 @@
 using System.Dynamic;
 using System.Linq;
 using System;
+using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace Predictions
 {
@@ -32,21 +34,44 @@ namespace Predictions
             return records;
         }
 
+        // WARNING: this will not work in the current logic because it returns a dictionary and not a ExpandoObject
         public static IEnumerable<dynamic> OneHotEncode(this IEnumerable<dynamic> records, string columnName, List<dynamic> categories)
         {
-            var categoryDictionary = categories.ToDictionary(c => c, c => categories.IndexOf(c));
-            IDictionary<string, object> row;
-            int i = 0;
+            // TODO: get directly categories.Count and use Parallel.For(...)
+            var categoriesCount = categories.Count;
+            //var categoryDictionary = categories.ToDictionary(c => c, c => categories.IndexOf(c));
+            ConcurrentDictionary<int, Dictionary<string, object>> oneHotEncodingValues = new ConcurrentDictionary<int, Dictionary<string, object>>();
+            Parallel.ForEach(categories, (category, state, index) =>
+            {
+                var value = new int[categoriesCount];
+                value[index] = 1;
+                var dictionary = value.Select((item, indx) => new { item, index = columnName + indx }).ToDictionary(key => key.index, v => (object)v.item);
+                oneHotEncodingValues.TryAdd((int)index, dictionary);
+            });
+
+            // Siple version
+            List<dynamic> result = new List<dynamic>();
             foreach (var r in records)
             {
-                row = r as IDictionary<string, object>;
-                for (i = 0; i < categories.Count; i++)
-                {
-                    row[columnName + i] = System.Convert.ToInt32(i == categoryDictionary[row[columnName]]);
-                }
-                row.Remove(columnName);
+                var row = r as IDictionary<string, object>;
+                // this will blow up on duplicate keys
+                var hailMarry = new[] { row, oneHotEncodingValues[(int)row[columnName]] }.SelectMany(dict => dict).ToDictionary(key => key.Key, val => val.Value);
+                // TODO: convert from Dictionary back to ExpandoObject ... preferably without loops
+                result.Add(hailMarry as dynamic);
             }
-            return records;
+
+            //// This works most of the time
+            //var result = new ConcurrentBag<dynamic>();
+            //Parallel.ForEach(records, (r) =>
+            //{
+            //    var row = r as IDictionary<string, object>;
+            //    // this will blow up on duplicate keys
+            //    var hailMarry = new[] { row, oneHotEncodingValues[(int)row[columnName]] }.SelectMany(dict => dict).ToDictionary(key => key.Key, val => val.Value);
+            //// TODO: convert from Dictionary back to ExpandoObject ... preferably without loops
+            //    result.Add(hailMarry as dynamic);
+            //});
+
+            return result;
         }
 
         public static IEnumerable<dynamic> NormalizeColumn(this IEnumerable<dynamic> records, string columnName)

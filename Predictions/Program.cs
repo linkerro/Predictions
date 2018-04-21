@@ -24,7 +24,7 @@ namespace Predictions
             //MergeFiles();
             //MergeFiles2();
 
-            var trainTestData = CreateDataSets();
+            var trainTestData = CreateDataSets4();
             CreateAndTrainModel(trainTestData);
         }
 
@@ -45,7 +45,7 @@ namespace Predictions
             model.OnBatchEnd += Model_OnBatchEnd;
 
             model.Compile(OptOptimizers.Adam, OptLosses.MeanSquaredError, OptMetrics.MSE);
-            model.Train(trainFrame, 10, 256, testFrame);
+            model.Train(trainFrame, 10, 2048, testFrame);
 
             File.WriteAllText(LogTo + DateTime.Now.ToString("yyyy_MM_dd_hh_mm") + ".txt", buffer);
 
@@ -209,9 +209,10 @@ namespace Predictions
                 .NormalizeColumn("Date")
                 .NormalizeColumn("Time")
                 .Categorize("Mnemonic", categories)
-                .NormalizeColumn("Mnemonic")
+                //.NormalizeColumn("Mnemonic")
+                .OneHotEncode("Mnemonic", categories)
                 .ToList();
-            var windows = GetWindows(firstInfo.GroupBy(r => r.Mnemonic));
+            var windows = GetWindows(firstInfo);
             var trainTestData = windows
                 .Scramble()
                 .SplitWindows();
