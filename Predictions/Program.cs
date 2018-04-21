@@ -1,5 +1,4 @@
-﻿using CNTK;
-using CsvHelper;
+﻿using CsvHelper;
 using CsvHelper.Configuration;
 using SiaNet;
 using SiaNet.Common;
@@ -10,9 +9,6 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Predictions
 {
@@ -25,13 +21,6 @@ namespace Predictions
 
         static void Main(string[] args)
         {
-            var devices = DeviceDescriptor.AllDevices().Where(x => (x.Type == DeviceKind.GPU)).ToList();
-            if (devices.Count() == 0)
-                throw new Exception("No GPU Device found. Please run the CPU examples instead!");
-
-            //Setting global device
-            GlobalParameters.Device = devices[0];
-
             //MergeFiles();
             //MergeFiles2();
 
